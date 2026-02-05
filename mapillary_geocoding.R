@@ -33,6 +33,10 @@ mapillary_coords <- mapillary_coords %>%
 #############################################################################################################
 #############################################################################################################
 
+# FYI-1: Takes long to run, each batch will take approx. 3h 
+# FYI-2: OSM Nominatim geocoder may block you if you geocode multiple batches per day: avoid doing so.
+# FYI-3: To play safe, do a batch per day
+
 # Geocode Batch 1
 
 library(tidygeocoder)
@@ -68,6 +72,7 @@ saveRDS(geo2, "mapillary_geo_batch2.rds")
 
 # Geocode Batch 3
 
+
 batch3 <- mapillary_coords %>%
   filter(batch_id == 3)
 
@@ -79,7 +84,7 @@ geo3 <- reverse_geocode(
   full_results = TRUE
 )
 
-# saveRDS(geo3, "mapillary_geo_batch3.rds")
+saveRDS(geo3, "mapillary_geo_batch3.rds")
 
 # Geocode Batch 4
 
@@ -94,7 +99,7 @@ geo4 <- reverse_geocode(
   full_results = TRUE
 )
 
-# saveRDS(geo4, "mapillary_geo_batch4.rds")
+saveRDS(geo4, "mapillary_geo_batch4.rds")
 
 # Geocode Batch 5
 
@@ -109,6 +114,173 @@ geo5 <- reverse_geocode(
   full_results = TRUE
 )
 
-# saveRDS(geo5, "mapillary_geo_batch5.rds")
+saveRDS(geo5, "mapillary_geo_batch5.rds")
 
+
+#############################################################################################################
+#############################################################################################################
+
+# Filter for NAs in the street entries
+
+#############################################################################################################
+#############################################################################################################
+
+# helper, identify NAs in the street entries
+
+get_na_rows <- function(df, column) {
+
+  if (!column %in% names(df)) {
+    stop(paste("Column", column, "not found in data frame"))
+  }
+  
+  na_indices <- which(is.na(df[[column]]))
+  
+  na_df <- df[na_indices, ]
+  
+  return(list(
+    na_count = length(na_indices),
+    na_indices = na_indices,
+    na_rows = na_df
+  ))
+}
+
+# helper, subset by NAs 
+
+get_na_subset <- function(df, column) {
+  df[is.na(df[[column]]), ]
+}
+
+geo1_na <- get_na_rows(geo1, "road") # n = 28 
+
+geo1_na_df <- get_na_subset(geo1, "road")
+
+table(geo1_na_df$county) # Luxembourg, 3 NAs
+
+
+geo2_na <- get_na_rows(geo2, "road") # n = 267 
+
+geo2_na_df <- get_na_subset(geo2, "road")
+
+table(geo2_na_df$county) # Luxembourg, 18 NAs
+
+
+geo3_na <- get_na_rows(geo3, "road") # n = 31 
+
+geo3_na_df <- get_na_subset(geo3, "road")
+
+table(geo3_na_df$county) # Luxembourg, 31 NAs
+
+
+geo4_na <- get_na_rows(mapillary_geo_batch4, "road") # n = 28
+
+geo4_na_df <- get_na_subset(mapillary_geo_batch4, "road")
+
+table(geo4_na_df$county) # Luxembourg, 28 NAs
+
+
+geo5_na <- get_na_rows(mapillary_geo_batch5, "road") # n = 23 
+
+geo5_na_df <- get_na_subset(mapillary_geo_batch5, "road")
+
+table(geo5_na_df$county) # Luxembourg, 23 NAs
+
+#############################################################################################################
+#############################################################################################################
+
+# Create names for pictures
+
+#############################################################################################################
+#############################################################################################################
+
+# Filter only for Canton Luxembourg
+
+geo1_lux <- geo1[geo1$county=="Canton Luxembourg", ]
+geo2_lux <- geo2[geo2$county=="Canton Luxembourg", ]
+geo3_lux <- geo3[geo3$county=="Canton Luxembourg", ]
+geo4_lux <- mapillary_geo_batch4[mapillary_geo_batch4$county=="Canton Luxembourg", ]
+geo5_lux <- mapillary_geo_batch5[mapillary_geo_batch5$county=="Canton Luxembourg", ]
+
+
+# Create image_name column
+
+geo1_lux$image_name <- rep(NA, nrow(geo1_lux))
+geo2_lux$image_name <- rep(NA, nrow(geo2_lux))
+geo3_lux$image_name <- rep(NA, nrow(geo3_lux))
+geo4_lux$image_name <- rep(NA, nrow(geo4_lux))
+geo5_lux$image_name <- rep(NA, nrow(geo5_lux))
+
+
+# Create helper function 
+
+make_image_names <- function(df, road_col = "road", address_col = "address") {
+  
+  # helper, sanitize the  names
+  sanitize_to_underscores <- function(x) {
+    x <- trimws(x)
+    x <- gsub("\\s+", "_", x)
+    x <- gsub("[^[:alnum:]_]+", "_", x)
+    x <- gsub("_+", "_", x)
+    x <- gsub("^_|_$", "", x)
+    x
+  }
+  
+  # helper, create base name: road if present, otherwise first address token
+  base_name <- ifelse(
+    !is.na(df[[road_col]]) & trimws(df[[road_col]]) != "",
+    df[[road_col]],
+    sub(",.*$", "", df[[address_col]])
+  )
+  
+  base_name <- sanitize_to_underscores(base_name)
+  
+  # make unique with suffixes _1, _2, _3
+  image_name <- ave(base_name, base_name, FUN = function(v) {
+    if (length(v) == 1) return(v)
+    paste0(v, c("", paste0("_", seq_len(length(v) - 1))))
+  })
+  
+  return(image_name)
+  
+}
+
+
+geo1_lux$image_name <- make_image_names(geo1_lux)
+geo2_lux$image_name <- make_image_names(geo2_lux)
+geo3_lux$image_name <- make_image_names(geo3_lux)
+geo4_lux$image_name <- make_image_names(geo4_lux)
+geo5_lux$image_name <- make_image_names(geo5_lux)
+
+#############################################################################################################
+#############################################################################################################
+
+# Sanity checks and save all
+
+#############################################################################################################
+#############################################################################################################
+
+
+get_na_rows(geo1_lux, "image_name") # 0
+get_na_rows(geo2_lux, "image_name") # 0
+get_na_rows(geo3_lux, "image_name") # 0
+get_na_rows(geo4_lux, "image_name") # 0
+get_na_rows(geo5_lux, "image_name") # 0
+
+# stack the datasets
+
+geo_all_lux <- bind_rows(
+  geo1_lux,
+  geo2_lux,
+  geo3_lux,
+  geo4_lux,
+  geo5_lux
+)
+
+# check for non-unique image IDs
+
+nrow(geo_all_lux) # n = 36118
+sum(length(unique(geo_all_lux$id))) # n = 36118
+
+# Save 
+
+saveRDS(geo_all_lux, "mapillary_luxembourg_geocoded_renamed.rds")
 
