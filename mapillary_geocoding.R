@@ -15,12 +15,19 @@ library(tidygeocoder)
 # Read in Data
 
 mapillary_coords <- read_csv("C:/Users/daria/Desktop/mapillary_all_43k_coords.csv")
+gare_coords <- read_csv("C:/Users/daria/Desktop/mapillary_gare_coords.csv")
+belair_coords <- read_csv("C:/Users/daria/Desktop/mapillary_belair_coords.csv")
+vh_coords <- read_csv("C:/Users/daria/Desktop/mapillary_vh_coords.csv")
 
 View(mapillary_coords)
 
 # format ID, get rid of scientific numbers
 
 mapillary_coords$id <- format(mapillary_coords$id, scientific = FALSE, trim = TRUE)
+gare_coords$id <- format(gare_coords$id, scientific = FALSE, trim = TRUE)
+belair_coords$id <- format(belair_coords$id, scientific = FALSE, trim = TRUE)
+vh_coords$id <- format(vh_coords$id, scientific = FALSE, trim = TRUE)
+
 
 #############################################################################################################
 #############################################################################################################
@@ -115,6 +122,45 @@ geo5 <- reverse_geocode(
 )
 
 saveRDS(geo5, "mapillary_geo_batch5.rds")
+
+# Geocode The Gare Batch 
+
+
+gare_batch <- reverse_geocode(
+  gare_coords,
+  lat = lat,
+  long = lon,
+  method = "osm",
+  full_results = TRUE
+)
+
+saveRDS(gare_batch, "mapillary_gare_batch.rds")
+
+# Geocode The Belair Batch 
+
+
+belair_batch <- reverse_geocode(
+  belair_coords,
+  lat = lat,
+  long = lon,
+  method = "osm",
+  full_results = TRUE
+)
+
+saveRDS(belair_batch, "mapillary_belair_batch.rds")
+
+
+# Geocode The VH Batch 
+
+vh_batch <- reverse_geocode(
+  vh_coords,
+  lat = lat,
+  long = lon,
+  method = "osm",
+  full_results = TRUE
+)
+
+saveRDS(vh_batch, "mapillary_vh_batch.rds")
 
 
 #############################################################################################################
@@ -283,4 +329,88 @@ sum(length(unique(geo_all_lux$id))) # n = 36118
 # Save 
 
 saveRDS(geo_all_lux, "mapillary_luxembourg_geocoded_renamed.rds")
+
+write_csv(geo_all_lux, "geo_all_lux.csv")
+
+install.packages(c("leaflet", "leaflet.extras"))
+library(leaflet)
+library(leaflet.extras)
+
+leaflet(geo_all_lux) |>
+  addProviderTiles(providers$CartoDB.Positron) |>
+  addHeatmap(
+    lng = ~lon, lat = ~lat,
+    blur = 20,
+    radius = 15,
+    max = 1
+  ) 
+
+df <- data.frame(
+  lon = c(6.05, 6.20),
+  lat = c(49.55, 49.67))
+
+
+leaflet(df) |>
+  addProviderTiles(providers$CartoDB.Positron) |>
+  addHeatmap(
+    lng = ~lon, lat = ~lat,
+    blur = 20,
+    radius = 7,
+    max = 1
+  ) 
+
+
+lux_neighborhoods <- st_read(
+  "C:/Users/daria/Desktop/Luxembourg_Ville/Quartier_Luxembourg_Ville/24_quartiers_LuxVille_Generalises.shp"
+)
+
+
+belair_boundary <- lux_neighborhoods[lux_neighborhoods$POPO=="Belair",]
+ville_haut_boundary <- lux_neighborhoods[lux_neighborhoods$POPO=="Ville Haute", ]
+gare_boundary <- lux_neighborhoods[lux_neighborhoods$POPO=="Gare",]
+
+
+st_write(belair_boundary, "belair_boundary.shp")
+st_write(ville_haut_boundary, "ville_haut_boundary.shp")
+st_write(gare_boundary, "gare_boundary.shp")
+
+
+
+
+leaflet(gare_coords) |>
+  addProviderTiles(providers$CartoDB.Positron) |>
+  addHeatmap(
+    lng = ~lon, lat = ~lat,
+    blur = 20,
+    radius = 15,
+    max = 1
+  ) 
+
+leaflet(belair_coords) |>
+  addProviderTiles(providers$CartoDB.Positron) |>
+  addHeatmap(
+    lng = ~lon, lat = ~lat,
+    blur = 20,
+    radius = 15,
+    max = 1
+  ) 
+
+leaflet(vh_coords) |>
+  addProviderTiles(providers$CartoDB.Positron) |>
+  addHeatmap(
+    lng = ~lon, lat = ~lat,
+    blur = 20,
+    radius = 15,
+    max = 1
+  ) 
+
+
+leaflet(geo_all_lux) |>
+  addProviderTiles(providers$CartoDB.Positron) |>
+  addHeatmap(
+    lng = ~lon, lat = ~lat,
+    blur = 20,
+    radius = 15,
+    max = 1
+  ) 
 
